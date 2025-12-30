@@ -1,0 +1,138 @@
+import { test, expect } from '@playwright/test';
+import { TodoPage } from './pages/todo.page';
+
+/**
+ * Тесты фильтрации задач
+ */
+test.describe('Todo Filters', () => {
+  let todoPage: TodoPage;
+
+  test.beforeEach(async ({ page }) => {
+    todoPage = new TodoPage(page);
+    await todoPage.goto();
+  });
+
+  test('фильтр All показывает все задачи', async () => {
+    // Запоминаем количество
+    const allCount = await todoPage.getTodoCount();
+    
+    // Переключаемся на Active и обратно
+    await todoPage.filterBy('active');
+    await todoPage.filterBy('all');
+    
+    const countAfterFilter = await todoPage.getTodoCount();
+    expect(countAfterFilter).toBe(allCount);
+  });
+
+  test('фильтр Active показывает только невыполненные', async ({ page }) => {
+    await todoPage.filterBy('active');
+    
+    // Все видимые задачи должны быть не completed
+    const visibleTodos = await todoPage.todoItems.all();
+    for (const todo of visibleTodos) {
+      const isCompleted = await todoPage.isCompleted(todo);
+      expect(isCompleted).toBe(false);
+    }
+  });
+
+  test('фильтр Completed показывает только выполненные', async () => {
+    await todoPage.filterBy('completed');
+    
+    // Все видимые задачи должны быть completed
+    const visibleTodos = await todoPage.todoItems.all();
+    for (const todo of visibleTodos) {
+      const isCompleted = await todoPage.isCompleted(todo);
+      expect(isCompleted).toBe(true);
+    }
+  });
+
+  test('сумма Active + Completed = All', async () => {
+    await todoPage.filterBy('all');
+    const allCount = await todoPage.getTodoCount();
+    
+    await todoPage.filterBy('active');
+    const activeCount = await todoPage.getTodoCount();
+    
+    await todoPage.filterBy('completed');
+    const completedCount = await todoPage.getTodoCount();
+    
+    expect(activeCount + completedCount).toBe(allCount);
+  });
+
+  test('задача исчезает из Active после отметки completed', async () => {
+    await todoPage.filterBy('active');
+    const initialActiveCount = await todoPage.getTodoCount();
+    
+    // Берём первую active задачу и отмечаем completed
+    const firstActiveTodo = todoPage.getTodoByIndex(0);
+    await todoPage.toggleTodo(firstActiveTodo);
+    
+    // Задача должна исчезнуть из списка (фильтр Active)
+    const newActiveCount = await todoPage.getTodoCount();
+    expect(newActiveCount).toBe(initialActiveCount - 1);
+  });
+
+  test('задача исчезает из Completed после снятия отметки', async () => {
+    await todoPage.filterBy('completed');
+    const initialCompletedCount = await todoPage.getTodoCount();
+    
+    if (initialCompletedCount === 0) {
+      test.skip();
+      return;
+    }
+    
+    // Берём первую completed задачу и снимаем отметку
+    const firstCompletedTodo = todoPage.getTodoByIndex(0);
+    await todoPage.toggleTodo(firstCompletedTodo);
+    
+    // Задача должна исчезнуть из списка
+    const newCompletedCount = await todoPage.getTodoCount();
+    expect(newCompletedCount).toBe(initialCompletedCount - 1);
+  });
+
+  test('новая задача появляется в Active', async () => {
+    await todoPage.filterBy('active');
+    const initialCount = await todoPage.getTodoCount();
+    
+    const taskText = `New active task ${Date.now()}`;
+    await todoPage.addTodo(taskText);
+    
+    // Новая задача по умолчанию active, должна быть видна
+    const newTodo = todoPage.getTodoByText(taskText);
+    await expect(newTodo).toBeVisible();
+    
+    const newCount = await todoPage.getTodoCount();
+    expect(newCount).toBe(initialCount + 1);
+  });
+
+  test('новая задача не появляется в Completed', async () => {
+    await todoPage.filterBy('completed');
+    const initialCount = await todoPage.getTodoCount();
+    
+    const taskText = `New task ${Date.now()}`;
+    await todoPage.addTodo(taskText);
+    
+    // Новая задача не должна быть видна в Completed
+    const newTodo = todoPage.getTodoByText(taskText);
+    await expect(newTodo).not.toBeVisible();
+    
+    const newCount = await todoPage.getTodoCount();
+    expect(newCount).toBe(initialCount);
+  });
+
+  test('фильтр сохраняется после CRUD операций', async () => {
+    await todoPage.filterBy('active');
+    
+    // Добавляем задачу
+    const taskText = `Filter test ${Date.now()}`;
+    await todoPage.addTodo(taskText);
+    
+    // Фильтр всё ещё должен быть Active (визуальная проверка затруднена без доп. локаторов)
+    // Проверяем косвенно — все задачи должны быть active
+    const visibleTodos = await todoPage.todoItems.all();
+    for (const todo of visibleTodos.slice(0, 5)) { // Проверяем первые 5 для скорости
+      const isCompleted = await todoPage.isCompleted(todo);
+      expect(isCompleted).toBe(false);
+    }
+  });
+});

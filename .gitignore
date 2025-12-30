@@ -1,0 +1,41 @@
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/tests/snapshots/
+
+# Allure
+/allure-results/
+/allure-report/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+pnpm-lock.yaml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Snapshots (закомментировать если нужно хранить в git)
+# /tests/snapshots/
+
+# Angular приложение (клонируется отдельно)
+/app/
+
+# Logs
+test-run.log
